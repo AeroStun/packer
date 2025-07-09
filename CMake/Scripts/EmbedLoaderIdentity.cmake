@@ -1,0 +1,42 @@
+#!/usr/bin/env cmake
+
+set (SECTION_NAME .loader_size)
+
+execute_process (
+    COMMAND ${OBJDUMP_COMMAND} --section-headers --section=${SECTION_NAME} ${TARGET_BINARY}
+    OUTPUT_VARIABLE OBJDUMP_OUTPUT
+    RESULT_VARIABLE OBJDUMP_RESULT
+)
+
+if (NOT OBJDUMP_RESULT EQUAL 0)
+    message (FATAL_ERROR "objdump failed to run on ${BINARY_PATH}")
+endif ()
+
+
+string (REGEX MATCH "[ \t]*[0-9]+[ \t]+${SECTION_NAME}.*" SECTION_LINE "${OBJDUMP_OUTPUT}")
+
+if (NOT SECTION_LINE)
+    message (FATAL_ERROR "Section ${SECTION_NAME} not found in objdump output.")
+endif ()
+
+string (REPLACE "${SECTION_NAME}" "" SECTION_DATA "${SECTION_LINE}")
+string (REGEX MATCHALL "[0-9a-fA-F]+" SECTION_VALUES "${SECTION_DATA}")
+
+list (GET SECTION_VALUES 2 SECTION_FILE_OFFSET_HEX)
+math (EXPR SECTION_FILE_OFFSET "0x${SECTION_FILE_OFFSET_HEX}")
+
+message (STATUS "Section ${SECTION_NAME} file offset: 0x${SECTION_FILE_OFFSET_HEX} (${SECTION_FILE_OFFSET})")
+
+execute_process (
+    COMMAND ${EMBEDDER_BINARY} ${TARGET_BINARY} ${SECTION_FILE_OFFSET}
+    OUTPUT_VARIABLE EMBEDDER_OUTPUT
+    RESULT_VARIABLE EMBEDDER_RESULT
+)
+
+if (NOT EMBEDDER_RESULT EQUAL 0)
+    message (FATAL_ERROR "embedder failed to run on ${BINARY_PATH}")
+endif ()
+
+
+message ("EMBEDDER_OUTPUT:\n${EMBEDDER_OUTPUT}")
+
